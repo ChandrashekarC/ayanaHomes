@@ -61,10 +61,17 @@ summary{cursor:pointer}
 .art svg{width:100%;height:100%;display:block}
 #house3d{position:absolute;inset:0;width:100%;height:100%;display:none;touch-action:pan-y;cursor:grab}
 .art.has3d #house3d{display:block}
-.art.has3d > svg{opacity:0}
+.art.has3d > svg{opacity:0;pointer-events:none}
+#house3d{z-index:1}
 .hint3d{display:none;position:absolute;left:12px;top:12px;z-index:2;margin:0;font:500 13px 'IBM Plex Mono',monospace;color:#1A2433;background:rgba(255,255,255,.88);padding:6px 12px;border-radius:999px;pointer-events:none;transition:opacity .4s}
 .art.has3d .hint3d{display:block}
 .hint3d.gone{opacity:0}
+.btn3d{display:none;position:absolute;left:12px;bottom:12px;z-index:3;min-height:44px;padding:0 18px;border-radius:999px;border:2px solid #fff;background:#123E6E;color:#fff;font:600 15px 'Hind',system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;align-items:center}
+.btn3d:hover{background:#0C2E54}
+.art.has3d #enter3d,.reno-stage.has3d #renoIn{display:inline-flex}
+.art.has3d.inside #enter3d,.reno-stage.has3d.inside #renoIn{display:none}
+.art.has3d.inside #exit3d,.reno-stage.has3d.inside #renoOut{display:inline-flex}
+.reno-stage .btn3d{bottom:10px;left:10px;min-height:40px;font-size:14px;padding:0 14px}
 .copy{flex:0 0 176px;height:176px;padding:2px 16px 12px;background:#fff;border-top:2px solid #123E6E;overflow:hidden}
 .bar{display:flex;gap:4px}
 .bar button{flex:1 1 0;min-width:0;height:44px;padding:0;border:0;background:transparent;cursor:pointer;display:flex;align-items:center}
@@ -101,7 +108,8 @@ summary{cursor:pointer}
 .reno-stage > svg{display:block}
 #reno3d{position:absolute;inset:0;width:100%;height:100%;display:none;touch-action:pan-y;cursor:ew-resize}
 .reno-stage.has3d #reno3d{display:block}
-.reno-stage.has3d > svg{opacity:0}
+.reno-stage.has3d > svg{opacity:0;pointer-events:none}
+#reno3d{z-index:1}
 .r3-label,.r3-wipe{display:none}
 .reno-stage.has3d .r3-label{display:block;position:absolute;top:10px;font:500 14px 'IBM Plex Mono',monospace;background:rgba(255,255,255,.9);padding:4px 10px;border-radius:4px;pointer-events:none}
 .r3-after{left:10px;color:#123E6E}.r3-before{right:10px;color:#5A6575}
@@ -198,7 +206,9 @@ summary{cursor:pointer}
 <div class="panel grid-paper" id="panel">
 <div class="art" id="art">
 <canvas id="house3d" aria-hidden="true"></canvas>
-<p class="hint3d" id="hint3d">← Drag sideways to look around →</p>
+<p class="hint3d" id="hint3d">Tap the house to step inside</p>
+<button type="button" class="btn3d" id="enter3d">Step inside</button>
+<button type="button" class="btn3d" id="exit3d">← Back outside</button>
 <svg viewBox="0 0 400 460" role="img" id="houseSvg" aria-label="Drawing of a home at stage 1 of 7: plot and soil">
 <defs>
 <linearGradient id="skyDay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#78B4DE"/><stop offset="1" stop-color="#E6F2F8"/></linearGradient>
@@ -478,9 +488,11 @@ summary{cursor:pointer}
 <div class="r3-label r3-after">AFTER</div>
 <div class="r3-label r3-before">BEFORE</div>
 <div class="r3-wipe" id="r3wipe"><span>‹ ›</span></div>
+<button type="button" class="btn3d" id="renoIn">Step inside</button>
+<button type="button" class="btn3d" id="renoOut">← Back outside</button>
 </div>
 <div class="reno-ctrl">
-<label for="reno" style="font-weight:600;color:#123E6E">Drag to renovate</label>
+<label for="reno" id="renoLabel" style="font-weight:600;color:#123E6E">Drag to renovate</label>
 <input id="reno" type="range" min="0" max="100" value="55">
 <p style="margin:0;font-size:16px;color:#3D4A5C">Cracks traced and repaired · damp sealed · a new first floor on a checked foundation.</p>
 </div>
@@ -874,6 +886,25 @@ function init() {
     specks(g, s, 3000, ['#7c7468', '#d8d0c2'], 1.2, 0.4);
   });
   const asphaltT = tex(256, (g, s) => { g.fillStyle = '#4b4e51'; g.fillRect(0, 0, s, s); specks(g, s, 9000, ['#2f3133', '#6a6d70', '#5a5c5e'], 1.4, 0.6); });
+  const tileT = tex(256, (g, s) => {
+    g.fillStyle = '#b9b1a3'; g.fillRect(0, 0, s, s);
+    const w = s / 2;
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      const v = 228 + ((rnd() * 10) | 0); g.fillStyle = `rgb(${v},${v - 5},${v - 14})`;
+      g.fillRect(i * w + 1.5, j * w + 1.5, w - 3, w - 3);
+    }
+    g.globalAlpha = 0.12; g.strokeStyle = '#8c8478'; g.lineWidth = 1;
+    for (let k = 0; k < 10; k++) { g.beginPath(); let x = rnd() * s, y = rnd() * s; g.moveTo(x, y); for (let q = 0; q < 6; q++) { x += rnd() * 40 - 10; y += rnd() * 30 - 15; g.lineTo(x, y); } g.stroke(); }
+    g.globalAlpha = 1;
+    specks(g, s, 1500, ['#d8d0c2', '#fffaf0'], 1, 0.3);
+  });
+  const redOxT = tex(256, (g, s) => {
+    g.fillStyle = '#8f3a2b'; g.fillRect(0, 0, s, s);
+    blots(g, s, 40, ['#7d3125', '#a24a37', '#b06a55', '#6e2b20'], 30, 0.45);
+    specks(g, s, 4000, ['#5c2219', '#c27a62', '#d8b09a'], 1.4, 0.4);
+    g.strokeStyle = 'rgba(40,20,15,.6)';
+    for (let i = 0; i < 3; i++) { let x = rnd() * s, y = rnd() * s; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 8; k++) { x += rnd() * 18 - 9; y += rnd() * 14; g.lineTo(x, y); } g.stroke(); }
+  });
 
   // ---------- materials ----------
   const M = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.92, metalness: 0, envMapIntensity: 0.3 }, o));
@@ -1254,6 +1285,98 @@ function init() {
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.46, 32), mRed); ring.rotation.x = -Math.PI / 2; ring.position.set(-1.05, 0.056, 7.55); G.home.add(ring);
   const dot = new THREE.Mesh(new THREE.CircleGeometry(0.26, 32), mMarigold); dot.rotation.x = -Math.PI / 2; dot.position.set(-1.05, 0.057, 7.55); G.home.add(dot);
 
+
+  // ---------- furniture builders (shared by both scenes) ----------
+  function orient(face, x0, z0, grp) {
+    return (du, dh, dd, u, yb, dc, mat) => {
+      let g;
+      if (face === '-x') g = boxG(dd, dh, du, x0 - dc, yb, z0 + u);
+      else if (face === '+x') g = boxG(dd, dh, du, x0 + dc, yb, z0 + u);
+      else if (face === '-z') g = boxG(du, dh, dd, x0 + u, yb, z0 - dc);
+      else g = boxG(du, dh, dd, x0 + u, yb, z0 + dc);
+      put(mat, g, grp);
+    };
+  }
+  function sofa(m, grp, face, x0, z0, len, y0) {
+    const b = orient(face, x0, z0, grp);
+    b(len - 0.1, 0.06, 0.8, 0, y0, 0.45, m.wood);
+    b(len, 0.42, 0.9, 0, y0 + 0.06, 0.45, m.fab);
+    b(len, 0.5, 0.22, 0, y0 + 0.48, 0.11, m.fab);
+    b(0.18, 0.66, 0.9, -len / 2 + 0.09, y0 + 0.06, 0.45, m.fab);
+    b(0.18, 0.66, 0.9, len / 2 - 0.09, y0 + 0.06, 0.45, m.fab);
+    b(len - 0.4, 0.1, 0.62, 0, y0 + 0.48, 0.56, m.fab);
+    [-len / 2 + 0.5, len / 2 - 0.5].forEach((u) => b(0.42, 0.38, 0.12, u, y0 + 0.56, 0.3, m.cush));
+  }
+  function coffee(m, grp, x, z, y0) {
+    put(m.rug, boxG(2.4, 0.012, 1.8, x, y0, z, [2.4, 1.8]), grp);
+    put(m.wood, boxG(1.1, 0.05, 0.6, x, y0 + 0.38, z), grp);
+    [[-0.5, -0.25], [0.5, -0.25], [-0.5, 0.25], [0.5, 0.25]].forEach(([dx, dz]) => put(m.metal, cylG(0.02, 0.38, x + dx, y0, z + dz, 6), grp));
+  }
+  function tvWall(m, grp, face, x0, z0, y0, panel) {
+    const b = orient(face, x0, z0, grp);
+    if (panel) b(2.6, 2.3, 0.05, 0, y0, 0.03, m.cab);
+    b(2.0, 0.42, 0.42, 0, y0, 0.26, m.cab);
+    b(2.02, 0.03, 0.44, 0, y0 + 0.42, 0.27, m.granite);
+    b(1.3, 0.76, 0.05, 0, y0 + 1.05, 0.09, m.tv);
+  }
+  function dining(m, grp, x, z, y0) {
+    put(m.wood, boxG(1.5, 0.05, 0.9, x, y0 + 0.72, z), grp);
+    [[-0.68, -0.38], [0.68, -0.38], [-0.68, 0.38], [0.68, 0.38]].forEach(([dx, dz]) => put(m.wood, boxG(0.05, 0.72, 0.05, x + dx, y0, z + dz), grp));
+    [[-0.38, -0.62], [0.38, -0.62], [-0.38, 0.62], [0.38, 0.62]].forEach(([dx, dz]) => {
+      const cx = x + dx, cz = z + dz, back = dz > 0 ? 0.19 : -0.19;
+      put(m.cab, boxG(0.42, 0.05, 0.42, cx, y0 + 0.45, cz), grp);
+      put(m.cab, boxG(0.42, 0.5, 0.04, cx, y0 + 0.5, cz + back), grp);
+      [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]].forEach(([lx, lz]) => put(m.cab, boxG(0.035, 0.45, 0.035, cx + lx, y0, cz + lz), grp));
+    });
+  }
+  function kitchen(m, grp, face, x0, z0, len, y0, gap0, gap1) {
+    const b = orient(face, x0, z0, grp);
+    b(len, 0.85, 0.6, 0, y0, 0.3, m.cab);
+    b(len + 0.04, 0.04, 0.64, 0, y0 + 0.85, 0.32, m.granite);
+    b(0.6, 0.06, 0.42, -len / 2 + 0.8, y0 + 0.89, 0.32, m.metal);
+    [[-len / 2, gap0], [gap1, len / 2]].forEach(([a, c]) => { if (c - a > 0.2) b(c - a, 0.7, 0.35, (a + c) / 2, y0 + 1.55, 0.175, m.cab); });
+  }
+  function fan(m, grp, x, yc, z) {
+    put(m.metal, cylG(0.018, 0.4, x, yc - 0.4, z, 6), grp);
+    put(m.white, cylG(0.11, 0.09, x, yc - 0.49, z, 16), grp);
+    for (let i = 0; i < 3; i++) {
+      const g = new THREE.BoxGeometry(0.62, 0.012, 0.12);
+      g.translate(0.42, 0, 0); g.rotateY(i * 2.094 + 0.3); g.translate(x, yc - 0.45, z);
+      put(m.white, worldUV(g, [1, 1]), grp);
+    }
+  }
+  const ceilLight = (m, grp, x, yc, z) => put(m.ceil, cylG(0.2, 0.035, x, yc - 0.035, z, 24), grp);
+  function plant(m, grp, x, z, y0) { put(m.pot, cylG(0.2, 0.42, x, y0, z, 14, 0.15), grp); blob(0.36, m.plant, x, y0 + 0.78, z, grp); }
+
+  // ---------- finished interior (fades in at griha pravesh) ----------
+  const mTile = D({ map: tileT, roughness: 0.25, envMapIntensity: 0.6 });
+  const IM = {
+    fab: D({ color: 0x6f8296, roughness: 1 }), cush: D({ color: 0xd9a441, roughness: 1 }), rug: D({ color: 0x8f3b2e, roughness: 1 }),
+    tv: D({ color: 0x111111, roughness: 0.2, metalness: 0.3, emissive: 0x2a3c55, emissiveIntensity: 0 }),
+    granite: D({ color: 0x2b2725, roughness: 0.25, envMapIntensity: 0.8 }), cab: D({ map: woodT, color: 0xe0c49c, roughness: 0.6 }),
+    white: D({ color: 0xf2f0ea, roughness: 0.6 }), ceil: D({ color: 0xffffff, emissive: 0xfff1d6, emissiveIntensity: 0 }),
+    metal: D({ color: 0x8c8f93, metalness: 0.7, roughness: 0.35 }), wood: mWood, pot: mPot, plant: mPlant, art: D({ color: 0x3f6e8c, roughness: 0.6 })
+  };
+  const mDiya = D({ color: 0xffd27a, emissive: 0xffb347, emissiveIntensity: 0 });
+  put(mTile, boxG(8.7, 0.02, 11.7, 0, 0.6, 0, [1.2, 1.2]), G.home);
+  put(mPaint, boxG(0.33, 3.15, 0.33, 0, 0.6, 0), G.home);
+  put(mPaint, boxG(0.33, 3.15, 0.33, 0, 3.9, 0), G.home);
+  [3.29, 6.59].forEach((yb) => { put(mPaint, boxG(0.27, 0.47, 12.0, 0, yb, 0), G.home); put(mPaint, boxG(9.0, 0.47, 0.27, 0, yb, 0), G.home); });
+  sofa(IM, G.home, '-x', 4.385, 3.0, 2.3, 0.62);
+  coffee(IM, G.home, 2.55, 3.0, 0.62);
+  tvWall(IM, G.home, '+x', 0.16, 3.0, 0.62, true);
+  dining(IM, G.home, -2.25, -3.0, 0.62);
+  kitchen(IM, G.home, '+z', 2.25, -5.885, 3.6, 0.62, -0.75, 0.75);
+  fan(IM, G.home, 2.55, 3.73, 3.0); fan(IM, G.home, -2.25, 3.73, -3.0);
+  [[1.5, 1.2], [3.4, 5.0], [-2.25, -0.9], [2.25, -3.0], [-2.6, 3.2], [-2.6, 5.0]].forEach(([x, z]) => ceilLight(IM, G.home, x, 3.73, z));
+  plant(IM, G.home, -3.8, 5.3, 0.62);
+  plant(IM, G.home, 3.9, 0.6, 0.62);
+  const pj = orient('+x', -4.385, 1.6, G.home);
+  pj(0.8, 0.9, 0.38, 0, 1.0, 0.19, IM.cab); pj(0.86, 0.04, 0.42, 0, 1.9, 0.21, IM.cab);
+  put(mDiya, cylG(0.04, 0.05, -4.12, 1.95, 1.6, 10), G.home);
+  orient('+x', -4.385, -3.0, G.home)(1.1, 0.75, 0.03, 0, 1.9, 0.015, IM.art);
+  put(IM.cab, boxG(0.9, 0.5, 0.32, -2.6, 0.62, 5.72), G.home);
+
   flush();
 
   // ---------- sky, lights ----------
@@ -1277,9 +1400,10 @@ function init() {
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
   scene.add(sun); scene.add(sun.target);
   const porch = new THREE.PointLight(0xffc06a, 0, 7, 2); porch.position.set(-0.6, 2.5, 6.7); scene.add(porch);
-  const in1 = new THREE.PointLight(0xffb85c, 0, 9, 2); in1.position.set(0, 2.2, 3); scene.add(in1);
-  const in2 = new THREE.PointLight(0xffb85c, 0, 9, 2); in2.position.set(0, 5.5, 3); scene.add(in2);
+  const in1 = new THREE.PointLight(0xffe2b8, 0, 10, 2); in1.position.set(-1.6, 3.45, 1.0); scene.add(in1);
+  const in2 = new THREE.PointLight(0xffe2b8, 0, 10, 2); in2.position.set(2.2, 3.45, -2.8); scene.add(in2);
 
+  let homeT = 0;
   function setDusk(k) {
     skyU.top.value.lerpColors(DAY.top, DUSK.top, k);
     skyU.mid.value.lerpColors(DAY.mid, DUSK.mid, k);
@@ -1294,8 +1418,11 @@ function init() {
     sun.position.set(Math.sin(az) * Math.cos(el) * 45, Math.sin(el) * 45, Math.cos(az) * Math.cos(el) * 45);
     mGlass.emissiveIntensity = k * 1.9;
     mLamp.emissiveIntensity = k * 1.6;
+    IM.ceil.emissiveIntensity = 0.35 + k * 2.2;
+    IM.tv.emissiveIntensity = k * 0.5;
+    mDiya.emissiveIntensity = 0.8 + k * 2;
     porch.intensity = k * 6;
-    in1.intensity = in2.intensity = k * 14;
+    in1.intensity = in2.intensity = homeT > 0 ? 5 + k * 9 : 0;
   }
 
   // ---------- stage driver ----------
@@ -1323,12 +1450,15 @@ function init() {
     G.tank.visible = tp > 0; G.tank.position.y = 3 * (1 - ease(tp));
     G.home.visible = t6 > 0;
     detailMats.forEach((m) => { m.opacity = t6 * m.userData.max; });
+    homeT = t6;
     setDusk(ease(t6));
   }
 
-  // ---------- camera ----------
-  let yawUser = 0;
-  const target = new THREE.Vector3();
+  // ---------- camera: orbit outside, or step inside ----------
+  let yawUser = 0, inYaw = -0.5, inPitch = -0.1, inK = 0, inGoal = 0;
+  const target = new THREE.Vector3(), OP = new THREE.Vector3(), OT = new THREE.Vector3();
+  const EP = new THREE.Vector3(), LT = new THREE.Vector3(), CP = new THREE.Vector3();
+  const smooth = (t) => t * t * (3 - 2 * t);
   function placeCam(s) {
     const p = s / 7;
     const aspect = camera.aspect || 1;
@@ -1336,12 +1466,21 @@ function init() {
     const el = lerp(0.5, 0.24, ease(clamp(s / 4)));
     const fit = aspect < 1 ? 1 / Math.pow(aspect, 0.85) : 1;
     const dist = lerp(19, 27, ease(clamp(s / 5))) * fit;
-    target.set(0, lerp(0.4, 4.4, ease(clamp(s / 5.5))), lerp(1.5, 0.3, ease(clamp(s / 5))));
-    camera.position.set(
-      target.x + Math.sin(yaw) * Math.cos(el) * dist,
-      target.y + Math.sin(el) * dist,
-      target.z + Math.cos(yaw) * Math.cos(el) * dist
-    );
+    OT.set(0, lerp(0.4, 4.4, ease(clamp(s / 5.5))), lerp(1.5, 0.3, ease(clamp(s / 5))));
+    OP.set(OT.x + Math.sin(yaw) * Math.cos(el) * dist, OT.y + Math.sin(el) * dist, OT.z + Math.cos(yaw) * Math.cos(el) * dist);
+    const e = smooth(inK);
+    if (e < 1e-4) { camera.position.copy(OP); target.copy(OT); }
+    else {
+      const eye = lerp(1.6, 2.15, ease(sub(tk(s, 3), 0.4, 0.7)));
+      EP.set(3.3, eye, 5.5);
+      LT.set(EP.x + Math.sin(inYaw) * Math.cos(inPitch) * 5, EP.y + Math.sin(inPitch) * 5, EP.z - Math.cos(inYaw) * Math.cos(inPitch) * 5);
+      CP.set(-1.05, eye + 0.3, 10);
+      const a = (1 - e) * (1 - e), b = 2 * e * (1 - e), c2 = e * e;
+      camera.position.set(OP.x * a + CP.x * b + EP.x * c2, OP.y * a + CP.y * b + EP.y * c2, OP.z * a + CP.z * b + EP.z * c2);
+      target.lerpVectors(OT, LT, Math.min(1, e * 1.3));
+    }
+    const fov = lerp(35, 70, e), near = e > 0.6 ? 0.05 : 0.5;
+    if (camera.fov !== fov || camera.near !== near) { camera.fov = fov; camera.near = near; camera.updateProjectionMatrix(); }
     camera.lookAt(target);
   }
 
@@ -1351,9 +1490,10 @@ function init() {
   function frame() {
     const d = sTarget - sCur;
     sCur = Math.abs(d) < 0.002 || reduce ? sTarget : sCur + d * 0.16;
+    if (inK !== inGoal) inK = reduce ? inGoal : (inGoal > inK ? Math.min(inGoal, inK + 0.022) : Math.max(inGoal, inK - 0.022));
     apply(sCur); placeCam(sCur);
     renderer.render(scene, camera);
-    if (inView && (sCur !== sTarget || dragging)) requestAnimationFrame(frame); else running = false;
+    if (inView && (sCur !== sTarget || dragging || inK !== inGoal)) requestAnimationFrame(frame); else running = false;
   }
   function kick() { if (!running && inView) { running = true; requestAnimationFrame(frame); } }
 
@@ -1372,27 +1512,44 @@ function init() {
     new IntersectionObserver((es) => { inView = es[0].isIntersecting; if (inView) kick(); }).observe(story);
   }
 
-  // drag sideways to look around (vertical swipes still scroll the page)
+  // tap the house to step inside; drag to look around
   const hint = document.getElementById('hint3d');
-  let lastX = 0;
-  canvas.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing'; kick(); });
+  const btnIn = document.getElementById('enter3d'), btnOut = document.getElementById('exit3d');
+  function setInside(v) {
+    inGoal = v ? 1 : 0;
+    art.classList.toggle('inside', !!v);
+    if (hint) { hint.textContent = v ? 'Drag to look around · scroll to keep building' : 'Tap the house to step inside'; hint.classList.remove('gone'); }
+    kick();
+  }
+  if (btnIn) btnIn.addEventListener('click', () => setInside(true));
+  if (btnOut) btnOut.addEventListener('click', () => setInside(false));
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && inGoal) setInside(false); });
+  let lastX = 0, lastY = 0, downX = 0, downY = 0, downT = 0, moved = false, ptype = 'mouse';
+  canvas.addEventListener('pointerdown', (e) => {
+    dragging = true; moved = false; ptype = e.pointerType;
+    lastX = downX = e.clientX; lastY = downY = e.clientY; downT = performance.now();
+    canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing'; kick();
+  });
   canvas.addEventListener('pointermove', (e) => {
     if (!dragging) return;
-    yawUser = clamp(yawUser - (e.clientX - lastX) * 0.008, -1.5, 1.5);
-    lastX = e.clientX;
-    if (hint) hint.classList.add('gone');
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 6) moved = true;
+    if (inGoal) { inYaw += dx * 0.006; if (ptype === 'mouse') inPitch = clamp(inPitch - dy * 0.004, -0.6, 0.5); }
+    else yawUser = clamp(yawUser - dx * 0.008, -1.5, 1.5);
+    if (moved && hint) hint.classList.add('gone');
     kick();
   });
-  const end = () => { dragging = false; canvas.style.cursor = ''; };
-  canvas.addEventListener('pointerup', end);
-  canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('pointerup', () => { dragging = false; canvas.style.cursor = ''; });
+  canvas.addEventListener('click', () => { if (!moved && !inGoal) setInside(true); });
+  canvas.addEventListener('pointercancel', () => { dragging = false; canvas.style.cursor = ''; });
 
   // first frame
   resize();
   apply(sCur); placeCam(sCur);
   renderer.render(scene, camera);
   art.classList.add('has3d');
-  window.__house3d = { scene, camera, renderer, setStage: (s) => { sTarget = sCur = s; apply(s); placeCam(s); renderer.render(scene, camera); } };
+  window.__house3d = { scene, camera, renderer, setStage: (s) => { sTarget = sCur = s; apply(s); placeCam(s); renderer.render(scene, camera); }, inside: (v) => { inK = inGoal = v ? 1 : 0; art.classList.toggle('inside', !!v); placeCam(sCur); renderer.render(scene, camera); } };
 
   // ================= RENOVATION: before / after in 3D =================
   const rStage = document.getElementById('renoStage');
@@ -1651,57 +1808,148 @@ function init() {
     const ring2 = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.46, 32), aRed); ring2.rotation.x = -Math.PI / 2; ring2.position.set(-1.05, 0.056, 5.6); ag.add(ring2);
     const dot2 = new THREE.Mesh(new THREE.CircleGeometry(0.26, 32), aMarigold); dot2.rotation.x = -Math.PI / 2; dot2.position.set(-1.05, 0.057, 5.6); ag.add(dot2);
 
+
+    // ---- interiors ----
+    const AM = {
+      fab: M({ color: 0x6f8296, roughness: 1 }), cush: M({ color: 0xd9a441, roughness: 1 }), rug: M({ color: 0x8f3b2e, roughness: 1 }),
+      tv: M({ color: 0x111111, roughness: 0.2, metalness: 0.3 }), granite: M({ color: 0x2b2725, roughness: 0.25, envMapIntensity: 0.8 }),
+      cab: M({ map: woodT, color: 0xe0c49c, roughness: 0.6 }), white: M({ color: 0xf2f0ea, roughness: 0.6 }),
+      ceil: M({ color: 0xffffff, emissive: 0xfff1d6, emissiveIntensity: 0.5 }), metal: M({ color: 0x8c8f93, metalness: 0.7, roughness: 0.35 }),
+      wood: aWood, pot: aPot, plant: aPlant, art: M({ color: 0x3f6e8c, roughness: 0.6 })
+    };
+    put(M({ map: tileT, roughness: 0.25, envMapIntensity: 0.6 }), boxG(8.7, 0.02, 7.7, 0, 0.6, 0, [1.2, 1.2]), ag);
+    put(aPaint, boxG(0.3, 0.45, 7.7, 0, 3.3, 0), ag);
+    tvWall(AM, ag, '+x', -4.385, 0.6, 0.62, true);
+    sofa(AM, ag, '-x', 1.3, 0.6, 2.3, 0.62);
+    coffee(AM, ag, -1.0, 0.6, 0.62);
+    dining(AM, ag, -2.3, -2.5, 0.62);
+    kitchen(AM, ag, '+z', 2.5, -3.885, 3.4, 0.62, -0.95, 0.45);
+    fan(AM, ag, -1.2, 3.73, 0.6); fan(AM, ag, 2.4, 3.73, -1.0);
+    [[-3.0, 2.6], [1.5, 2.6], [2.5, -2.6], [-2.3, -1.0]].forEach(([x, z]) => ceilLight(AM, ag, x, 3.73, z));
+    plant(AM, ag, 3.9, 3.2, 0.62); plant(AM, ag, -3.9, 3.3, 0.62);
+    orient('-x', 4.385, -1.0, ag)(1.1, 0.75, 0.03, 0, 1.9, 0.015, AM.art);
+    const inA = new THREE.PointLight(0xfff4e6, 7, 11, 2); inA.position.set(0, 3.2, 0); A.sc.add(inA);
+
+    const oRed = M({ map: redOxT, roughness: 0.55, envMapIntensity: 0.5 });
+    const OM = { white: M({ color: 0xcfc6a8, roughness: 0.8 }), metal: M({ color: 0x5d5a52, metalness: 0.4, roughness: 0.7 }) };
+    const oCot = M({ map: woodT, color: 0x8a6a50, roughness: 0.9 }), oMat = M({ color: 0xa99b84, roughness: 1 });
+    const oSteel = M({ color: 0x6c7872, metalness: 0.4, roughness: 0.6 }), oCRT = M({ color: 0x5c5a55, roughness: 0.7 }), oScreen = M({ color: 0x1d2220, roughness: 0.3 });
+    const oChair = M({ color: 0x2f5f9a, roughness: 0.6 }), oTube = M({ color: 0xffffff, emissive: 0xe8f4ff, emissiveIntensity: 0.9 });
+    const oBucket = M({ color: 0xb33a2c, roughness: 0.6 }), oCal = M({ color: 0xd9452f, roughness: 0.8 });
+    put(oRed, boxG(8.7, 0.02, 7.7, 0, 0.6, 0, [1.5, 1.5]), bg);
+    const part = { along: 'z', c: 0, n: 1, a0: -3.85, L: 7.7, y0: 0.6, ops: [{ u0: 4.6, u1: 5.5, v0: 0, v1: 2.1, type: 'door' }] };
+    pieces(part, T, (g) => put(mOld, g, bg), OLDT);
+    put(mOldTop, boxG(0.3, 0.45, 7.7, 0, 3.3, 0, [3, 0.85]), bg);
+    put(mOldTop, boxG(1.15, 0.15, 0.27, 0, 2.7, 1.2, [3, 0.85]), bg);
+    fan(OM, bg, -2.2, 3.75, 0.4); fan(OM, bg, 2.25, 3.75, 0.2);
+    put(OM.metal, boxG(0.06, 0.08, 1.25, -4.35, 2.72, -0.4), bg);
+    put(oTube, boxG(0.05, 0.05, 1.2, -4.3, 2.68, -0.4), bg);
+    const tvT = orient('+z', -2.5, -3.885, bg);
+    tvT(0.9, 0.7, 0.5, 0, 0.62, 0.25, oCot); tvT(0.55, 0.45, 0.48, 0, 1.32, 0.27, oCRT); tvT(0.42, 0.32, 0.01, 0, 1.38, 0.515, oScreen);
+    put(oChair, boxG(0.45, 0.05, 0.45, -2.0, 1.05, 1.2), bg); put(oChair, boxG(0.45, 0.45, 0.05, -2.0, 1.1, 1.0), bg);
+    [[-0.19, -0.19], [0.19, -0.19], [-0.19, 0.19], [0.19, 0.19]].forEach(([dx, dz]) => put(oChair, cylG(0.018, 0.43, -2.0 + dx, 0.62, 1.2 + dz, 6), bg));
+    put(oCot, boxG(1.0, 0.33, 2.0, 2.6, 0.62, 1.2), bg); put(oMat, boxG(0.95, 0.12, 1.95, 2.6, 0.95, 1.2), bg); put(OM.white, boxG(0.6, 0.1, 0.35, 2.6, 1.07, 0.4), bg);
+    put(oSteel, boxG(0.95, 1.9, 0.55, 3.6, 0.62, -3.5), bg); put(OM.metal, boxG(0.01, 1.8, 0.02, 3.6, 0.67, -3.22), bg);
+    put(oBucket, cylG(0.17, 0.3, 4.0, 0.62, 2.6, 14, 0.14), bg);
+    put(oCal, boxG(0.02, 0.42, 0.3, 0.13, 1.9, 2.4), bg);
+    put(OM.metal, cylG(0.006, 0.4, 2.6, 3.35, -0.8, 4), bg); blob(0.06, oTube, 2.6, 3.32, -0.8, bg, false);
+    const inB = new THREE.PointLight(0xf0f4ff, 3.5, 9, 2); inB.position.set(-2.2, 3.1, -0.4); B.sc.add(inB);
+
     flush();
 
-    // ---- camera + split render ----
+    // ---- camera + split render (outside view, or step inside) ----
     const cam = new THREE.PerspectiveCamera(35, 1.38, 0.5, 450);
     const tgt = new THREE.Vector3(0, 3.4, 0.8);
+    const RO = new THREE.Vector3(), RE = new THREE.Vector3(), RL = new THREE.Vector3(), RC = new THREE.Vector3(-1.05, 2.45, 8.5), rLook = new THREE.Vector3();
+    let rInK = 0, rGoal = 0, rYaw = 0.76, rPitch = -0.06;
     function placeR() {
       const asp = cam.aspect || 1.38;
-      const yaw = 0.55, el = 0.2;
-      const dist = 24 * (asp < 1.3 ? 1.3 / asp : 1);
-      cam.position.set(tgt.x + Math.sin(yaw) * Math.cos(el) * dist, tgt.y + Math.sin(el) * dist, tgt.z + Math.cos(yaw) * Math.cos(el) * dist);
-      cam.lookAt(tgt);
+      const yaw = 0.55, el = 0.2, dist = 24 * (asp < 1.3 ? 1.3 / asp : 1);
+      RO.set(tgt.x + Math.sin(yaw) * Math.cos(el) * dist, tgt.y + Math.sin(el) * dist, tgt.z + Math.cos(yaw) * Math.cos(el) * dist);
+      const e = rInK * rInK * (3 - 2 * rInK);
+      if (e < 1e-4) { cam.position.copy(RO); rLook.copy(tgt); }
+      else {
+        RE.set(-3.2, 2.15, 3.0);
+        RL.set(RE.x + Math.sin(rYaw) * Math.cos(rPitch) * 5, RE.y + Math.sin(rPitch) * 5, RE.z - Math.cos(rYaw) * Math.cos(rPitch) * 5);
+        const a = (1 - e) * (1 - e), b = 2 * e * (1 - e), c2 = e * e;
+        cam.position.set(RO.x * a + RC.x * b + RE.x * c2, RO.y * a + RC.y * b + RE.y * c2, RO.z * a + RC.z * b + RE.z * c2);
+        rLook.lerpVectors(tgt, RL, Math.min(1, e * 1.3));
+      }
+      const fov = lerp(35, 72, e), near = e > 0.6 ? 0.05 : 0.5;
+      if (cam.fov !== fov || cam.near !== near) { cam.fov = fov; cam.near = near; cam.updateProjectionMatrix(); }
+      cam.lookAt(rLook);
     }
     const wipeEl = document.getElementById('r3wipe');
     let wipe = Number(rInput.value) / 100, queued = false;
     function draw() {
       queued = false;
+      if (rInK !== rGoal) rInK = reduce ? rGoal : (rGoal > rInK ? Math.min(rGoal, rInK + 0.022) : Math.max(rGoal, rInK - 0.022));
+      placeR();
       const w = rCanvas.clientWidth, h = rCanvas.clientHeight;
-      if (!w || !h) return;
-      const x = Math.round(w * wipe);
-      rr.setViewport(0, 0, w, h);
-      rr.setScissor(0, 0, x, h); rr.render(A.sc, cam);
-      rr.setScissor(x, 0, w - x, h); rr.render(B.sc, cam);
-      if (wipeEl) wipeEl.style.left = (wipe * 100) + '%';
+      if (w && h) {
+        const x = Math.round(w * wipe);
+        rr.setViewport(0, 0, w, h);
+        rr.setScissor(0, 0, x, h); rr.render(A.sc, cam);
+        rr.setScissor(x, 0, w - x, h); rr.render(B.sc, cam);
+        if (wipeEl) wipeEl.style.left = (wipe * 100) + '%';
+      }
+      if (rInK !== rGoal) request();
     }
-    const request = () => { if (!queued) { queued = true; requestAnimationFrame(draw); } };
+    function request() { if (!queued) { queued = true; requestAnimationFrame(draw); } }
     function rResize() {
       const w = rStage.clientWidth, h = rStage.clientHeight;
       if (!w || !h) return;
       rr.setSize(w, h, false);
-      cam.aspect = w / h; cam.updateProjectionMatrix(); placeR();
+      cam.aspect = w / h; cam.updateProjectionMatrix();
       request();
     }
     new ResizeObserver(rResize).observe(rStage);
     rInput.addEventListener('input', () => { wipe = Number(rInput.value) / 100; request(); });
-    let rDrag = false;
+
+    const rLabel = document.getElementById('renoLabel');
+    const rIn = document.getElementById('renoIn'), rOut = document.getElementById('renoOut');
+    function setRInside(v) {
+      rGoal = v ? 1 : 0;
+      rStage.classList.toggle('inside', !!v);
+      if (rLabel) rLabel.textContent = v ? 'Slide to compare · drag the picture to look around' : 'Drag to renovate · tap the house to step inside';
+      request();
+    }
+    if (rIn) rIn.addEventListener('click', () => setRInside(true));
+    if (rOut) rOut.addEventListener('click', () => setRInside(false));
+    if (rLabel) rLabel.textContent = 'Drag to renovate · tap the house to step inside';
+
     const fromX = (e) => {
       const r = rCanvas.getBoundingClientRect();
       rInput.value = Math.round(clamp((e.clientX - r.left) / r.width) * 100);
       rInput.dispatchEvent(new Event('input'));
     };
-    rCanvas.addEventListener('pointerdown', (e) => { rDrag = true; rCanvas.setPointerCapture(e.pointerId); fromX(e); });
-    rCanvas.addEventListener('pointermove', (e) => { if (rDrag) fromX(e); });
+    let rDrag = false, rMoved = false, rDX = 0, rDY = 0, rLX = 0, rLY = 0, rT0 = 0, rPT = 'mouse';
+    rCanvas.addEventListener('pointerdown', (e) => {
+      rDrag = true; rMoved = false; rPT = e.pointerType;
+      rDX = rLX = e.clientX; rDY = rLY = e.clientY; rT0 = performance.now();
+      rCanvas.setPointerCapture(e.pointerId);
+    });
+    rCanvas.addEventListener('pointermove', (e) => {
+      if (!rDrag) return;
+      const dx = e.clientX - rLX, dy = e.clientY - rLY;
+      rLX = e.clientX; rLY = e.clientY;
+      if (Math.abs(e.clientX - rDX) + Math.abs(e.clientY - rDY) > 6) rMoved = true;
+      if (!rMoved) return;
+      if (rGoal) { rYaw += dx * 0.006; if (rPT === 'mouse') rPitch = clamp(rPitch - dy * 0.004, -0.6, 0.5); request(); }
+      else fromX(e);
+    });
     rCanvas.addEventListener('pointerup', () => { rDrag = false; });
+    rCanvas.addEventListener('click', () => { if (!rMoved && !rGoal) setRInside(true); });
     rCanvas.addEventListener('pointercancel', () => { rDrag = false; });
 
-    rResize(); placeR(); draw();
+    rResize(); draw();
     rStage.classList.add('has3d');
-    window.__reno3d = { setWipe: (v) => { wipe = v; draw(); } };
+    window.__reno3d = {
+      setWipe: (v) => { wipe = v; draw(); },
+      inside: (v) => { rInK = rGoal = v ? 1 : 0; rStage.classList.toggle('inside', !!v); draw(); }
+    };
   }
 }
 </script>
 </body>
 </html>
-
