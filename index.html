@@ -97,6 +97,16 @@ summary{cursor:pointer}
 .reno-list strong{color:#123E6E}
 .reno-box{flex:1 1 400px;min-width:0;border:2px solid #123E6E;border-radius:10px;overflow:hidden;background:#F7F4EE}
 .reno-box svg{width:100%;height:auto;display:block;touch-action:pan-y}
+.reno-stage{position:relative}
+.reno-stage > svg{display:block}
+#reno3d{position:absolute;inset:0;width:100%;height:100%;display:none;touch-action:pan-y;cursor:ew-resize}
+.reno-stage.has3d #reno3d{display:block}
+.reno-stage.has3d > svg{opacity:0}
+.r3-label,.r3-wipe{display:none}
+.reno-stage.has3d .r3-label{display:block;position:absolute;top:10px;font:500 14px 'IBM Plex Mono',monospace;background:rgba(255,255,255,.9);padding:4px 10px;border-radius:4px;pointer-events:none}
+.r3-after{left:10px;color:#123E6E}.r3-before{right:10px;color:#5A6575}
+.reno-stage.has3d .r3-wipe{display:block;position:absolute;top:0;bottom:0;left:55%;width:3px;margin-left:-1.5px;background:#fff;box-shadow:0 0 0 1px rgba(18,62,110,.5);pointer-events:none}
+.r3-wipe span{position:absolute;bottom:12px;left:50%;width:36px;height:36px;margin-left:-18px;border-radius:50%;background:#123E6E;border:2px solid #fff;color:#fff;font:700 16px/32px system-ui,sans-serif;text-align:center;letter-spacing:2px}
 .reno-ctrl{padding:14px 18px 18px;border-top:1px solid #C9D3DE;background:#fff;display:flex;flex-direction:column;gap:6px}
 .reno-ctrl input{width:100%;min-height:44px;margin:0;accent-color:#123E6E}
 
@@ -379,6 +389,7 @@ summary{cursor:pointer}
 </ul>
 </div>
 <div class="reno-box">
+<div class="reno-stage" id="renoStage">
 <svg viewBox="0 0 400 290" role="img" id="renoSvg" aria-label="Before and after drawing of a renovated home">
 <defs>
 <clipPath id="after-clip"><rect id="renoClip" x="0" y="0" width="220" height="290"/></clipPath>
@@ -463,6 +474,11 @@ summary{cursor:pointer}
 <path d="M-10 270 l6 -6 v12 z M10 270 l-6 -6 v12 z" fill="#FFFFFF"/>
 </g>
 </svg>
+<canvas id="reno3d" aria-hidden="true"></canvas>
+<div class="r3-label r3-after">AFTER</div>
+<div class="r3-label r3-before">BEFORE</div>
+<div class="r3-wipe" id="r3wipe"><span>‹ ›</span></div>
+</div>
 <div class="reno-ctrl">
 <label for="reno" style="font-weight:600;color:#123E6E">Drag to renovate</label>
 <input id="reno" type="range" min="0" max="100" value="55">
@@ -988,19 +1004,19 @@ function init() {
   put(mAsphalt, boxG(190, 0.02, 6, 0, -0.008, 14.1, [3, 3]), G.static);
   put(mPaverS, boxG(190, 0.12, 1.6, 0, 0, 10.3, [1.2, 1.2]), G.static);
 
-  function neighbour(x, z, w, d, h, mat) {
-    put(mat, boxG(w, h, d, x, 0, z, [1.5, 1.5]), G.static);
-    put(mat, boxG(w + 0.2, 0.15, d + 0.2, x, h, z, [1.5, 1.5]), G.static);
+  function neighbour(x, z, w, d, h, mat, grp = G.static) {
+    put(mat, boxG(w, h, d, x, 0, z, [1.5, 1.5]), grp);
+    put(mat, boxG(w + 0.2, 0.15, d + 0.2, x, h, z, [1.5, 1.5]), grp);
     const floors = Math.round(h / 3.1);
     for (let f = 0; f < floors; f++) {
       const y = f * 3.1 + 1.0;
       for (let u = -w / 2 + 1.4; u <= w / 2 - 1.4; u += 2.6) {
-        put(mDarkGlass, boxG(1.1, 1.2, 0.05, x + u, y, z + d / 2 + 0.02), G.static);
-        put(mDarkGlass, boxG(1.1, 1.2, 0.05, x + u, y, z - d / 2 - 0.02), G.static);
+        put(mDarkGlass, boxG(1.1, 1.2, 0.05, x + u, y, z + d / 2 + 0.02), grp);
+        put(mDarkGlass, boxG(1.1, 1.2, 0.05, x + u, y, z - d / 2 - 0.02), grp);
       }
       for (let u = -d / 2 + 1.6; u <= d / 2 - 1.6; u += 3.0) {
-        put(mDarkGlass, boxG(0.05, 1.2, 1.1, x + w / 2 + 0.02, y, z + u), G.static);
-        put(mDarkGlass, boxG(0.05, 1.2, 1.1, x - w / 2 - 0.02, y, z + u), G.static);
+        put(mDarkGlass, boxG(0.05, 1.2, 1.1, x + w / 2 + 0.02, y, z + u), grp);
+        put(mDarkGlass, boxG(0.05, 1.2, 1.1, x - w / 2 - 0.02, y, z + u), grp);
       }
     }
   }
@@ -1010,8 +1026,8 @@ function init() {
   neighbour(-14, 50, 12, 10, 6.4, mNeighD);
   neighbour(12, 52, 12, 10, 9.6, mNeighA);
 
-  function tree(x, z, s) {
-    const g = new THREE.Group(); g.position.set(x, 0, z); G.static.add(g);
+  function tree(x, z, s, grp = G.static) {
+    const g = new THREE.Group(); g.position.set(x, 0, z); grp.add(g);
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12 * s, 0.22 * s, 3.2 * s, 9), mBark);
     trunk.position.y = 1.6 * s; trunk.castShadow = true; g.add(trunk);
     [[0, 3.7, 0, 1.55], [0.95, 3.3, 0.4, 1.15], [-0.85, 3.4, -0.3, 1.2], [0.2, 4.6, -0.2, 1.15], [-0.3, 4.0, 0.85, 1.05], [0.6, 4.1, -0.9, 1.0]]
@@ -1094,14 +1110,14 @@ function init() {
   });
   const H = 2.7;
 
-  function pieces(wl, thick, cb) {
+  function pieces(wl, thick, cb, tile = BRICK) {
     const ops = wl.ops.slice().sort((a, b) => a.u0 - b.u0);
     let u = 0;
     const piece = (u0, u1, v0, v1) => {
       if (u1 - u0 < 0.01 || v1 - v0 < 0.01) return;
       const mid = wl.a0 + (u0 + u1) / 2, len = u1 - u0;
-      if (wl.along === 'x') cb(boxG(len, v1 - v0, thick, mid, wl.y0 + v0, wl.c, BRICK));
-      else cb(boxG(thick, v1 - v0, len, wl.c, wl.y0 + v0, mid, BRICK));
+      if (wl.along === 'x') cb(boxG(len, v1 - v0, thick, mid, wl.y0 + v0, wl.c, tile));
+      else cb(boxG(thick, v1 - v0, len, wl.c, wl.y0 + v0, mid, tile));
     };
     for (const o of ops) { piece(u, o.u0, 0, H); piece(o.u0, o.u1, 0, o.v0); piece(o.u0, o.u1, o.v1, H); u = o.u1; }
     piece(u, wl.L, 0, H);
@@ -1377,7 +1393,315 @@ function init() {
   renderer.render(scene, camera);
   art.classList.add('has3d');
   window.__house3d = { scene, camera, renderer, setStage: (s) => { sTarget = sCur = s; apply(s); placeCam(s); renderer.render(scene, camera); } };
+
+  // ================= RENOVATION: before / after in 3D =================
+  const rStage = document.getElementById('renoStage');
+  const rCanvas = document.getElementById('reno3d');
+  const rInput = document.getElementById('reno');
+  if (rStage && rCanvas && rInput) {
+    try { buildReno(); } catch (e) { console.warn('3D renovation view unavailable, showing the drawing instead.', e); rStage.classList.remove('has3d'); }
+  }
+
+  function buildReno() {
+    const rr = new THREE.WebGLRenderer({ canvas: rCanvas, antialias: true });
+    rr.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2));
+    rr.outputColorSpace = THREE.SRGBColorSpace;
+    rr.toneMapping = THREE.ACESFilmicToneMapping;
+    rr.shadowMap.enabled = true;
+    rr.shadowMap.type = THREE.PCFSoftShadowMap;
+    rr.setScissorTest(true);
+    const env = new THREE.PMREMGenerator(rr).fromScene(new RoomEnvironment(), 0.04).texture;
+
+    // weathered textures
+    const oldT = tex(512, (g, s) => {
+      g.fillStyle = '#cdbb98'; g.fillRect(0, 0, s, s);
+      blots(g, s, 60, ['#b9a57f', '#a8946d', '#d9cba8', '#c2ae88'], 50, 0.4);
+      for (let i = 0; i < 140; i++) {
+        const x = rnd() * s, len = 40 + rnd() * 220, w = 1 + rnd() * 4;
+        const gr = g.createLinearGradient(0, 0, 0, len);
+        gr.addColorStop(0, 'rgba(60,50,38,.35)'); gr.addColorStop(1, 'rgba(60,50,38,0)');
+        g.fillStyle = gr; g.fillRect(x, 0, w, len);
+      }
+      const dg = g.createLinearGradient(0, s, 0, s * 0.55);
+      dg.addColorStop(0, 'rgba(62,48,30,.6)'); dg.addColorStop(0.5, 'rgba(62,48,30,.25)'); dg.addColorStop(1, 'rgba(62,48,30,0)');
+      g.fillStyle = dg; g.fillRect(0, s * 0.55, s, s * 0.45);
+      g.strokeStyle = 'rgba(70,55,35,.35)'; g.lineWidth = 3; g.beginPath();
+      for (let x = 0; x <= s; x += 8) { const y = s * 0.66 + Math.sin(x * 0.05) * 10 + Math.sin(x * 0.13) * 5; if (x) g.lineTo(x, y); else g.moveTo(x, y); }
+      g.stroke();
+      for (let i = 0; i < 5; i++) {
+        const cx = 30 + rnd() * (s - 60), cy = s * 0.3 + rnd() * s * 0.55, r = 14 + rnd() * 26;
+        g.save(); g.beginPath();
+        for (let a = 0; a < 6.28; a += 0.5) { const q = r * (0.6 + rnd() * 0.6), px = cx + Math.cos(a) * q, py = cy + Math.sin(a) * q * 0.7; if (a) g.lineTo(px, py); else g.moveTo(px, py); }
+        g.closePath(); g.fillStyle = '#d8ccb4'; g.fill(); g.clip();
+        for (let y = cy - r; y < cy + r; y += 10) {
+          for (let x = cx - r - (((y / 10) | 0) % 2) * 10; x < cx + r; x += 22) { g.fillStyle = ['#a9472f', '#b5533a', '#9e4129'][(rnd() * 3) | 0]; g.fillRect(x + 1, y + 1, 19, 7); }
+        }
+        g.restore();
+      }
+      g.strokeStyle = 'rgba(40,30,20,.75)';
+      for (let i = 0; i < 4; i++) {
+        let x = 30 + rnd() * (s - 60), y = rnd() * s * 0.4;
+        g.lineWidth = 1.6; g.beginPath(); g.moveTo(x, y);
+        for (let k = 0; k < 12; k++) { x += (rnd() - 0.5) * 16; y += 8 + rnd() * 10; g.lineTo(x, y); }
+        g.stroke();
+      }
+      specks(g, s, 6000, ['#8c7c5f', '#e3d7bd', '#3d3a30'], 1.5, 0.4);
+    });
+    const streakT = tex(256, (g, s) => {
+      g.fillStyle = '#b4ad9f'; g.fillRect(0, 0, s, s);
+      blots(g, s, 30, ['#9d968a', '#c4beb2'], 30, 0.4);
+      for (let i = 0; i < 90; i++) {
+        const x = rnd() * s, len = 30 + rnd() * 180, w = 1 + rnd() * 3;
+        const gr = g.createLinearGradient(0, 0, 0, len);
+        gr.addColorStop(0, 'rgba(25,25,25,.55)'); gr.addColorStop(1, 'rgba(25,25,25,0)');
+        g.fillStyle = gr; g.fillRect(x, 0, w, len);
+      }
+      specks(g, s, 3000, ['#5a5650', '#d6d0c4'], 1.2, 0.4);
+    });
+
+    const OLDT = [3, 3.3];
+    const mOld = M({ map: oldT, roughness: 1 });
+    const mOldTop = M({ map: streakT, roughness: 1 });
+    const mOldPlinth = M({ map: concT, color: 0x6e6252 });
+    const mOldFrame = M({ color: 0x5f7d74, roughness: 0.9 });
+    const mOldGlass = M({ color: 0x3e4846, roughness: 0.6, metalness: 0.1 });
+    const mRust = M({ color: 0x7a4a2a, roughness: 0.9, metalness: 0.3 });
+    const mOldWood = M({ map: woodT, color: 0xb9aa98, roughness: 1 });
+    const mOldTank = M({ map: concT, color: 0x8e8a80 });
+    const mWeed = M({ color: 0x6b7a3a, flatShading: true, roughness: 1 });
+    const aPaint = M({ map: paintT }), aTrim = M({ map: trimT, roughness: 0.85 }), aAccent = M({ map: paintT, color: 0xd29a66 });
+    const aPlinth = M({ map: concT, color: 0x8a6f5a }), aFrame = M({ color: 0xf3efe6, roughness: 0.5 });
+    const aGrill = M({ color: 0x2b2b2b, metalness: 0.5, roughness: 0.45 }), aWood = M({ map: woodT, roughness: 0.6, envMapIntensity: 0.5 });
+    const aGlass = M({ color: 0x5e7f96, roughness: 0.08, metalness: 0.25, envMapIntensity: 1.3 });
+    const aPaver = M({ map: paverT, roughness: 0.85 }), aPot = M({ color: 0xb45f3c, roughness: 0.8 }), aPlant = M({ color: 0x3f7f35, roughness: 0.9, flatShading: true });
+    const aMarigold = M({ color: 0xf29a1e, roughness: 0.7 }), aRed = M({ color: 0xc2452d, roughness: 0.8 });
+
+    function makeScene(before) {
+      const sc = new THREE.Scene(); sc.environment = env;
+      const k = before
+        ? { top: '#8f9ca6', mid: '#d3d8db', fog: '#c9cfd2', sun: '#f2efe6', si: 1.5, hi: 1.15 }
+        : { top: '#3f88c9', mid: '#a9cfea', fog: '#c9dceb', sun: '#fff1dc', si: 2.6, hi: 1.0 };
+      sc.fog = new THREE.Fog(k.fog, 40, 150);
+      sc.add(new THREE.Mesh(new THREE.SphereGeometry(300, 32, 16), new THREE.ShaderMaterial({
+        uniforms: { top: { value: new THREE.Color(k.top) }, mid: { value: new THREE.Color(k.mid) } },
+        side: THREE.BackSide, depthWrite: false, fog: false,
+        vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'uniform vec3 top; uniform vec3 mid; varying vec3 vP; void main(){ float h = normalize(vP).y; vec3 col = mix(mid, top, pow(clamp(h, 0.0, 1.0), 0.55)); gl_FragColor = vec4(col, 1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}'
+      })));
+      sc.add(new THREE.HemisphereLight(0xd6e8ff, 0x8f6b4e, k.hi));
+      const sn = new THREE.DirectionalLight(k.sun, k.si);
+      sn.position.set(26, 32, 24); sn.castShadow = true;
+      const sm2 = mobile ? 1024 : 2048; sn.shadow.mapSize.set(sm2, sm2);
+      Object.assign(sn.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 90 });
+      sn.shadow.bias = -0.0004; sn.shadow.normalBias = 0.03;
+      sc.add(sn);
+      const grp = new THREE.Group(); sc.add(grp);
+      put(mGrass, shapeGeo(rect(-95, -95, 95, 95), [rect(-7, -6.5, 7, 9)], 0, [5, 5]), grp);
+      put(mSoil, shapeGeo(rect(-7, -6.5, 7, 9), [], 0.003, [2.5, 2.5]), grp);
+      put(mAsphalt, boxG(190, 0.02, 6, 0, -0.008, 13.6, [3, 3]), grp);
+      put(mPaverS, boxG(190, 0.12, 1.6, 0, 0, 9.8, [1.2, 1.2]), grp);
+      neighbour(-16, 0, 9, 14, 6.4, mNeighA, grp);
+      neighbour(16, -1, 9, 15, 9.6, mNeighB, grp);
+      neighbour(0, -20, 22, 8, 12.8, mNeighC, grp);
+      tree(9.6, 1.5, 1.0, grp);
+      tree(-9.8, 4.0, 0.95, grp);
+      return { sc, grp };
+    }
+    const B = makeScene(true), A = makeScene(false);
+
+    const XR = [-4.5, 0, 4.5], ZR = [-4, 4];
+    const gridR = []; XR.forEach((x) => ZR.forEach((z) => gridR.push([x, z])));
+    const FL = [{ u0: 0.7, u1: 1.9, v0: 0.9, v1: 2.1, type: 'win' }, { u0: 2.8, u1: 3.8, v0: 0, v1: 2.1, type: 'door' }];
+    const FR = [{ u0: 0.9, u1: 3.3, v0: 0.9, v1: 2.1, type: 'win' }];
+    const SD = [{ u0: 3.2, u1: 4.5, v0: 0.9, v1: 2.1, type: 'win' }];
+    const BK = [{ u0: 1.5, u1: 2.7, v0: 0.9, v1: 2.1, type: 'win' }];
+    const wallsAt = (y0, fl, fr) => [
+      { along: 'x', c: 4, n: 1, a0: -4.35, L: 4.2, y0, ops: fl },
+      { along: 'x', c: 4, n: 1, a0: 0.15, L: 4.2, y0, ops: fr },
+      { along: 'x', c: -4, n: -1, a0: -4.35, L: 4.2, y0, ops: BK },
+      { along: 'x', c: -4, n: -1, a0: 0.15, L: 4.2, y0, ops: BK },
+      { along: 'z', c: -4.5, n: -1, a0: -3.85, L: 7.7, y0, ops: SD },
+      { along: 'z', c: 4.5, n: 1, a0: -3.85, L: 7.7, y0, ops: SD }
+    ];
+    const geom = (wl, o) => ({ w: o.u1 - o.u0, cu: wl.a0 + (o.u0 + o.u1) / 2, yb: wl.y0 + o.v0, top: wl.y0 + o.v1, h: o.v1 - o.v0 });
+
+    // ---- BEFORE: tired single-storey home ----
+    const bg = B.grp;
+    wallsAt(0.6, FL, FR).forEach((wl) => {
+      pieces(wl, T, (g) => put(mOld, g, bg), OLDT);
+      wl.ops.forEach((o) => {
+        const { w, cu, yb, top, h } = geom(wl, o);
+        onWall(wl, w + 0.5, 0.08, 0.55, cu, top + 0.14, 0.4, mOldTop, bg, [3, 0.85]);
+        onWall(wl, 0.06, h, 0.12, cu - w / 2 + 0.03, yb, 0.03, mOldFrame, bg);
+        onWall(wl, 0.06, h, 0.12, cu + w / 2 - 0.03, yb, 0.03, mOldFrame, bg);
+        onWall(wl, w, 0.06, 0.12, cu, top - 0.06, 0.03, mOldFrame, bg);
+        if (o.type === 'door') {
+          onWall(wl, w - 0.06, h - 0.03, 0.05, cu, yb, 0, mOldWood, bg, [0.5, 2.1]);
+        } else {
+          onWall(wl, w - 0.1, h - 0.1, 0.02, cu, yb + 0.05, -0.02, mOldGlass, bg);
+          onWall(wl, 0.06, h, 0.1, cu, yb, 0.03, mOldFrame, bg);
+          onWall(wl, w + 0.16, 0.05, 0.3, cu, yb - 0.05, 0.12, mOldTop, bg, [3, 0.85]);
+          for (let u = cu - w / 2 + 0.1; u < cu + w / 2 - 0.05; u += 0.13) onWall(wl, 0.018, h, 0.018, u, yb, 0.11, mRust, bg);
+          onWall(wl, w, 0.018, 0.018, cu, yb + h * 0.5, 0.11, mRust, bg);
+        }
+      });
+    });
+    gridR.forEach(([x, z]) => put(mOld, boxG(0.32, 2.7, 0.32, x, 0.6, z, OLDT), bg));
+    put(mOld, boxG(9.34, 0.47, 0.27, 0, 3.29, 4, OLDT), bg);
+    put(mOld, boxG(9.34, 0.47, 0.27, 0, 3.29, -4, OLDT), bg);
+    put(mOld, boxG(0.27, 0.47, 8.34, 4.5, 3.29, 0, OLDT), bg);
+    put(mOld, boxG(0.27, 0.47, 8.34, -4.5, 3.29, 0, OLDT), bg);
+    put(mOldTop, boxG(9.6, 0.15, 8.6, 0, 3.75, 0, [3, 0.85]), bg);
+    put(mOldTop, boxG(9.6, 0.7, 0.2, 0, 3.9, 4.2, [3, 0.85]), bg);
+    put(mOldTop, boxG(9.6, 0.7, 0.2, 0, 3.9, -4.2, [3, 0.85]), bg);
+    put(mOldTop, boxG(0.2, 0.7, 8.2, 4.7, 3.9, 0, [3, 0.85]), bg);
+    put(mOldTop, boxG(0.2, 0.7, 8.2, -4.7, 3.9, 0, [3, 0.85]), bg);
+    put(mOldPlinth, boxG(9.34, 0.6, 8.34, 0, 0, 0), bg);
+    put(mOldPlinth, boxG(1.6, 0.3, 0.4, -1.05, 0.3, 4.32), bg);
+    put(mOldPlinth, boxG(1.9, 0.3, 0.4, -1.05, 0, 4.72), bg);
+    put(mOldTank, boxG(1.6, 1.0, 1.4, 2.8, 3.9, -2.6), bg);
+    put(mOld, boxG(3.0, 1.1, 0.2, -5.5, 0, 8.9, OLDT), bg);
+    put(mOld, boxG(1.2, 0.55, 0.2, -3.4, 0, 8.9, OLDT), bg);
+    put(mOld, boxG(6.8, 1.1, 0.2, 3.6, 0, 8.9, OLDT), bg);
+    put(mOld, boxG(0.2, 1.1, 15.5, 6.9, 0, 1.25, OLDT), bg);
+    put(mOld, boxG(0.2, 1.1, 15.5, -6.9, 0, 1.25, OLDT), bg);
+    put(mOld, boxG(14, 1.1, 0.2, 0, 0, -6.4, OLDT), bg);
+    for (let x = -2.1; x <= -0.4; x += 0.14) put(mRust, boxG(0.025, 1.2, 0.025, x, 0.05, 8.95), bg);
+    put(mRust, boxG(1.9, 0.04, 0.04, -1.2, 1.2, 8.95), bg);
+    [[-3.0, 0.15, 9.2, 0.28], [-2.6, 0.1, 9.4, 0.2], [-3.6, 0.1, 9.3, 0.22]].forEach(([x, y, z, r]) => blob(r, mOldPlinth, x, y, z, bg));
+    [[-4.2, 4.3], [-2.7, 4.35], [0.6, 4.3], [3.1, 4.4], [4.6, 4.2], [4.7, -1], [-4.7, 2], [-6.4, 8.2], [6.3, 7.8], [1.5, 8.4]]
+      .forEach(([x, z], i) => blob(0.2 + (i % 3) * 0.07, mWeed, x, 0.12, z, bg));
+    blob(0.35, mWeed, 3.2, 4.0, 4.05, bg);
+
+    // ---- AFTER: renovated, with a new first floor ----
+    const ag = A.grp;
+    const FL1 = [{ u0: 1.0, u1: 2.8, v0: 0.9, v1: 2.1, type: 'win' }];
+    const FR1 = [{ u0: 0.5, u1: 1.5, v0: 0, v1: 2.1, type: 'bdoor' }, { u0: 2.3, u1: 3.6, v0: 0.9, v1: 2.1, type: 'win' }];
+    [...wallsAt(0.6, FL, FR), ...wallsAt(3.9, FL1, FR1)].forEach((wl) => {
+      pieces(wl, T + 0.02, (g) => put(aPaint, g, ag));
+      wl.ops.forEach((o) => {
+        const { w, cu, yb, top, h } = geom(wl, o);
+        onWall(wl, w + 0.3, 0.15, T + 0.03, cu, top, 0, aPaint, ag);
+        const fm = o.type === 'door' ? aWood : aFrame;
+        onWall(wl, 0.06, h, 0.12, cu - w / 2 + 0.03, yb, 0.03, fm, ag);
+        onWall(wl, 0.06, h, 0.12, cu + w / 2 - 0.03, yb, 0.03, fm, ag);
+        onWall(wl, w, 0.06, 0.12, cu, top - 0.06, 0.03, fm, ag);
+        onWall(wl, w + 0.5, 0.08, 0.62, cu, top + 0.14, 0.42, aTrim, ag);
+        if (o.type === 'door') {
+          onWall(wl, w - 0.1, h - 0.05, 0.05, cu, yb, 0, aWood, ag, [0.5, 2.1]);
+        } else {
+          onWall(wl, w - 0.1, h - 0.1, 0.02, cu, yb + 0.05, -0.02, aGlass, ag);
+          onWall(wl, 0.05, h, 0.1, cu, yb, 0.03, aFrame, ag);
+          if (o.type === 'win') {
+            onWall(wl, w + 0.16, 0.05, 0.32, cu, yb - 0.05, 0.12, aTrim, ag);
+            for (let u = cu - w / 2 + 0.1; u < cu + w / 2 - 0.05; u += 0.11) onWall(wl, 0.016, h, 0.016, u, yb, 0.11, aGrill, ag);
+            onWall(wl, w, 0.016, 0.016, cu, yb + h * 0.33, 0.11, aGrill, ag);
+            onWall(wl, w, 0.016, 0.016, cu, yb + h * 0.66, 0.11, aGrill, ag);
+          }
+        }
+      });
+    });
+    gridR.forEach(([x, z]) => { put(aAccent, boxG(0.33, 3.15, 0.33, x, 0.6, z), ag); put(aAccent, boxG(0.33, 3.15, 0.33, x, 3.9, z), ag); });
+    [[3.29, 3.73], [6.59, 7.03]].forEach(([yb, ys]) => {
+      put(aTrim, boxG(9.64, 0.19, 8.64, 0, ys, 0), ag);
+      put(aPaint, boxG(9.34, 0.47, 0.27, 0, yb, 4), ag);
+      put(aPaint, boxG(9.34, 0.47, 0.27, 0, yb, -4), ag);
+      put(aPaint, boxG(0.27, 0.47, 8.34, 4.5, yb, 0), ag);
+      put(aPaint, boxG(0.27, 0.47, 8.34, -4.5, yb, 0), ag);
+    });
+    put(aTrim, boxG(3.64, 0.19, 1.22, 2.1, 3.73, 4.91), ag);
+    put(aTrim, boxG(9.64, 1.0, 0.24, 0, 7.2, 4.2), ag);
+    put(aTrim, boxG(9.64, 1.0, 0.24, 0, 7.2, -4.2), ag);
+    put(aTrim, boxG(0.24, 1.0, 8.24, 4.7, 7.2, 0), ag);
+    put(aTrim, boxG(0.24, 1.0, 8.24, -4.7, 7.2, 0), ag);
+    put(aPlinth, boxG(9.34, 0.6, 8.34, 0, 0, 0), ag);
+    put(aGrill, boxG(3.6, 0.05, 0.05, 2.1, 4.9, 5.47), ag);
+    put(aGrill, boxG(0.05, 0.05, 1.2, 0.32, 4.9, 4.9), ag);
+    put(aGrill, boxG(0.05, 0.05, 1.2, 3.88, 4.9, 4.9), ag);
+    for (let x = 0.32; x <= 3.9; x += 0.12) put(aGrill, boxG(0.018, 1.0, 0.018, x, 3.9, 5.47), ag);
+    for (let z = 4.35; z <= 5.45; z += 0.12) { put(aGrill, boxG(0.018, 1.0, 0.018, 0.32, 3.9, z), ag); put(aGrill, boxG(0.018, 1.0, 0.018, 3.88, 3.9, z), ag); }
+    put(aTrim, boxG(1.8, 0.3, 1.8, 2.8, 7.2, -2.4), ag);
+    put(mTank, cylG(0.78, 1.3, 2.8, 7.5, -2.4, 28), ag);
+    put(mTank, cylG(0.32, 0.08, 2.8, 8.8, -2.4, 20), ag);
+    [7.8, 8.15, 8.45].forEach((y) => put(mTank, cylG(0.8, 0.04, 2.8, y, -2.4, 28), ag));
+    put(aPaver, boxG(1.6, 0.3, 0.4, -1.05, 0.3, 4.32), ag);
+    put(aPaver, boxG(1.9, 0.3, 0.4, -1.05, 0, 4.72), ag);
+    put(aPlant, boxG(1.1, 0.06, 0.03, -1.05, 2.66, 4.14), ag);
+    for (let x = -1.55; x <= -0.55; x += 0.1) put(aMarigold, cylG(0.035, 0.07, x, 2.6, 4.16, 8), ag);
+    put(aPaver, boxG(13.6, 0.05, 4.4, 0, 0, 6.7, [1.2, 1.2]), ag);
+    put(aPaint, boxG(4.7, 1.3, 0.2, -4.65, 0, 8.9), ag);
+    put(aPaint, boxG(6.8, 1.3, 0.2, 3.6, 0, 8.9), ag);
+    put(aPaint, boxG(0.2, 1.3, 15.5, 6.9, 0, 1.25), ag);
+    put(aPaint, boxG(0.2, 1.3, 15.5, -6.9, 0, 1.25), ag);
+    put(aPaint, boxG(14, 1.3, 0.2, 0, 0, -6.4), ag);
+    put(aTrim, boxG(4.75, 0.07, 0.28, -4.65, 1.3, 8.9), ag);
+    put(aTrim, boxG(6.85, 0.07, 0.28, 3.6, 1.3, 8.9), ag);
+    put(aTrim, boxG(0.28, 0.07, 15.5, 6.9, 1.3, 1.25), ag);
+    put(aTrim, boxG(0.28, 0.07, 15.5, -6.9, 1.3, 1.25), ag);
+    put(aTrim, boxG(14, 0.07, 0.28, 0, 1.3, -6.4), ag);
+    put(aAccent, boxG(0.42, 1.7, 0.42, -2.3, 0, 8.9), ag);
+    put(aAccent, boxG(0.42, 1.7, 0.42, 0.2, 0, 8.9), ag);
+    put(aGrill, boxG(2.1, 0.05, 0.05, -1.05, 0.1, 8.9), ag);
+    put(aGrill, boxG(2.1, 0.05, 0.05, -1.05, 1.45, 8.9), ag);
+    for (let x = -2.0; x <= -0.1; x += 0.1) put(aGrill, boxG(0.025, 1.4, 0.025, x, 0.1, 8.9), ag);
+    put(aAccent, boxG(0.6, 0.8, 0.6, -3.3, 0.05, 6.0), ag);
+    blob(0.34, aPlant, -3.3, 1.12, 6.0, ag);
+    [[0.7, 4.75], [3.5, 4.75]].forEach(([x, z]) => { put(aPot, cylG(0.15, 0.28, x, 3.9, z, 14, 0.11), ag); blob(0.24, aPlant, x, 4.36, z, ag); });
+    [[-2.6, 8.4], [-4.6, 8.4], [1.2, 8.4], [4.0, 8.4]].forEach(([x, z]) => { put(aPot, cylG(0.2, 0.35, x, 0.05, z, 14, 0.15), ag); blob(0.3, aPlant, x, 0.62, z, ag); });
+    const ring2 = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.46, 32), aRed); ring2.rotation.x = -Math.PI / 2; ring2.position.set(-1.05, 0.056, 5.6); ag.add(ring2);
+    const dot2 = new THREE.Mesh(new THREE.CircleGeometry(0.26, 32), aMarigold); dot2.rotation.x = -Math.PI / 2; dot2.position.set(-1.05, 0.057, 5.6); ag.add(dot2);
+
+    flush();
+
+    // ---- camera + split render ----
+    const cam = new THREE.PerspectiveCamera(35, 1.38, 0.5, 450);
+    const tgt = new THREE.Vector3(0, 3.4, 0.8);
+    function placeR() {
+      const asp = cam.aspect || 1.38;
+      const yaw = 0.55, el = 0.2;
+      const dist = 24 * (asp < 1.3 ? 1.3 / asp : 1);
+      cam.position.set(tgt.x + Math.sin(yaw) * Math.cos(el) * dist, tgt.y + Math.sin(el) * dist, tgt.z + Math.cos(yaw) * Math.cos(el) * dist);
+      cam.lookAt(tgt);
+    }
+    const wipeEl = document.getElementById('r3wipe');
+    let wipe = Number(rInput.value) / 100, queued = false;
+    function draw() {
+      queued = false;
+      const w = rCanvas.clientWidth, h = rCanvas.clientHeight;
+      if (!w || !h) return;
+      const x = Math.round(w * wipe);
+      rr.setViewport(0, 0, w, h);
+      rr.setScissor(0, 0, x, h); rr.render(A.sc, cam);
+      rr.setScissor(x, 0, w - x, h); rr.render(B.sc, cam);
+      if (wipeEl) wipeEl.style.left = (wipe * 100) + '%';
+    }
+    const request = () => { if (!queued) { queued = true; requestAnimationFrame(draw); } };
+    function rResize() {
+      const w = rStage.clientWidth, h = rStage.clientHeight;
+      if (!w || !h) return;
+      rr.setSize(w, h, false);
+      cam.aspect = w / h; cam.updateProjectionMatrix(); placeR();
+      request();
+    }
+    new ResizeObserver(rResize).observe(rStage);
+    rInput.addEventListener('input', () => { wipe = Number(rInput.value) / 100; request(); });
+    let rDrag = false;
+    const fromX = (e) => {
+      const r = rCanvas.getBoundingClientRect();
+      rInput.value = Math.round(clamp((e.clientX - r.left) / r.width) * 100);
+      rInput.dispatchEvent(new Event('input'));
+    };
+    rCanvas.addEventListener('pointerdown', (e) => { rDrag = true; rCanvas.setPointerCapture(e.pointerId); fromX(e); });
+    rCanvas.addEventListener('pointermove', (e) => { if (rDrag) fromX(e); });
+    rCanvas.addEventListener('pointerup', () => { rDrag = false; });
+    rCanvas.addEventListener('pointercancel', () => { rDrag = false; });
+
+    rResize(); placeR(); draw();
+    rStage.classList.add('has3d');
+    window.__reno3d = { setWipe: (v) => { wipe = v; draw(); } };
+  }
 }
 </script>
 </body>
 </html>
+
